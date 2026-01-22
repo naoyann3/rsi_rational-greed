@@ -1485,8 +1485,37 @@ let activeKeys = Object.keys(alignedAssets);
 let myChart = null;
 
 // =================================================================
-//  4. RENDER
+//  4. RENDER (MA実装・ヌル対策済み版)
 // =================================================================
+function calculateSMA(data, period) {
+    let sma = [];
+    for (let i = 0; i < data.length; i++) {
+        // 未来のデータ(null)や、期間不足の場合はnullを入れる
+        if (data[i].y === null || i < period - 1) {
+            sma.push({ x: data[i].x, y: null });
+            continue;
+        }
+        
+        // 直近period週分の平均を計算
+        let sum = 0;
+        let count = 0;
+        for (let j = 0; j < period; j++) {
+            if (data[i - j].y !== null) {
+                sum += data[i - j].y;
+                count++;
+            }
+        }
+        
+        // データが足りていれば平均、なければnull
+        if (count === period) {
+            sma.push({ x: data[i].x, y: sum / period });
+        } else {
+            sma.push({ x: data[i].x, y: null });
+        }
+    }
+    return sma;
+}
+
 function renderChart() {
     const ctx = document.getElementById('mainChart').getContext('2d');
     const datasets = [];
@@ -1495,15 +1524,19 @@ function renderChart() {
         const data = alignedAssets[key];
         if (!data || data.length === 0) return;
 
-      	// 正規化 (最初の値を100とする。nullの場合はnullのままにする)
+        // 正規化 (最初の値を100とする。nullの場合はnullのまま)
         const basePrice = data[0].y;
         const normalizedData = data.map(p => ({ 
             x: p.x, 
             y: p.y === null ? null : (p.y / basePrice) * 100 
         }));
         
-        // RSI計算
-        const rsiValues = calculateRSI(data);
+        // RSI計算 (元のデータで計算)
+        const rsiValues = calculateRSI(data.map(p => ({ x: p.x, y: p.y }))); 
+
+        // ★追加：40週移動平均線（日足200MA相当）の計算
+        // 正規化されたデータに対してMAを計算することで、パフォーマンスチャート上での乖離を見る
+        const maData = calculateSMA(normalizedData, 40);
 
         // Color Map
         const colorMap = {
@@ -1513,7 +1546,7 @@ function renderChart() {
         };
         const color = colorMap[key] || '#64748b';
 
-        // Main Line
+        // 1. メインライン（実線）
         datasets.push({
             label: key,
             data: normalizedData,
@@ -1525,16 +1558,27 @@ function renderChart() {
             order: 2
         });
 
-        // Signal Dots (Red Diamonds)
-        // データポイントの配列と同じ長さで、条件に合う場所だけ値を入れる
-        const signalData = normalizedData.map((point, i) => {
-            // ★追加：データが空っぽならシグナルも出さない
-            if (point.y === null) return null;
+        // 2. ★追加：長期トレンドライン（40週MA / 点線）
+        datasets.push({
+            label: '', // 凡例には出さない（ごちゃつくため）
+            data: maData,
+            borderColor: color,
+            borderWidth: 1,
+            borderDash: [4, 4], // 点線設定
+            pointRadius: 0,
+            tension: 0.4, // 少し滑らかに
+            order: 3, // メインより後ろ
+            spanGaps: false // データがないところは線を引かない
+        });
 
-            // RSI配列のインデックス調整
+        // 3. シグナル（赤ダイヤ）
+        const signalData = normalizedData.map((point, i) => {
+            if (point.y === null) return null; // 空データならスキップ
+
             const rsiIdx = i - (normalizedData.length - rsiValues.length);
             const rsi = rsiValues[rsiIdx];
             
+            // RSI < 35 かつ 価格データがある場合のみ点灯
             if (rsi !== undefined && rsi !== null && rsi < 35) {
                 return { x: point.x, y: point.y };
             }
@@ -1543,7 +1587,7 @@ function renderChart() {
 
         if (signalData.length > 0) {
             datasets.push({
-                label: '', // 凡例に出さない
+                label: '', 
                 data: signalData,
                 backgroundColor: '#e11d48', // Red
                 borderColor: '#fff',
@@ -1574,14 +1618,15 @@ function renderChart() {
                     position: 'bottom',
                     labels: { 
                         usePointStyle: true, 
-                        filter: item => item.text !== '' // 空ラベルは隠す
+                        filter: item => item.text !== '' 
                     }
                 },
                 tooltip: {
                     callbacks: {
                         label: (ctx) => {
+                            if (ctx.dataset.borderDash) return null; // MAのツールチップは隠す
                             if (!ctx.dataset.label) return 'RSI < 35 (買いシグナル)';
-                            return `${ctx.dataset.label}: ${ctx.raw.y.toFixed(1)}%`;
+                            return `${ctx.dataset.label}: ${ctx.raw.y?.toFixed(1)}%`;
                         }
                     }
                 }
