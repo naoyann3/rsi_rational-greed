@@ -13,7 +13,7 @@
     body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #334155; }
     .mono { font-family: 'Roboto Mono', monospace; }
     .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-    .chart-wrapper { position: relative; height: 80vh; min-height: 600px; width: 100%; }
+    .chart-wrapper { position: relative; height: 75vh; min-height: 500px; width: 100%; }
     
     .btn-asset { 
         background-color: #f1f5f9; border: 1px solid #cbd5e1; color: #64748b; 
@@ -23,6 +23,13 @@
     .btn-asset.active { 
         background-color: #0f172a; border-color: #0f172a; color: #ffffff; 
         box-shadow: 0 4px 6px rgba(0,0,0,0.2); 
+    }
+    
+    .currency-btn { 
+        transition: all 0.2s; 
+    }
+    .currency-btn.active { 
+        background-color: #0f172a !important; color: #ffffff !important; border-color: #0f172a !important;
     }
 </style>
 </head>
@@ -47,6 +54,32 @@
     <!-- Controls -->
     <div class="flex flex-wrap gap-2" id="asset-buttons"></div>
 
+    <!-- DCA UI -->
+    <div class="card p-4 flex flex-wrap items-end gap-6 bg-slate-100 border-slate-200">
+        <div>
+            <label class="block text-[10px] font-bold text-slate-500 mb-1">通貨選択</label>
+            <div class="flex gap-2">
+                <button id="currency-usd" class="currency-btn px-4 py-2 rounded-md border border-slate-300 text-sm font-bold bg-white text-slate-700 active">
+                    USD ($)
+                </button>
+                <button id="currency-jpy" class="currency-btn px-4 py-2 rounded-md border border-slate-300 text-sm font-bold bg-white text-slate-700">
+                    JPY (¥)
+                </button>
+            </div>
+        </div>
+        <div>
+            <label class="block text-[10px] font-bold text-slate-500 mb-1">毎週の積立額</label>
+            <div class="flex items-center">
+                <input type="number" id="dca-amount" value="100" class="w-32 px-3 py-1.5 rounded border border-slate-300 mono text-sm font-bold">
+                <span id="currency-symbol" class="ml-2 font-bold text-slate-700">$</span>
+            </div>
+        </div>
+        <div class="text-[10px] text-slate-500 pb-2 leading-relaxed">
+            ※ 各銘柄の上場来（またはデータ開始来）の積立結果を算出します。<br>
+            ※ 積立時点のUSD/JPYレートを用いて円建て・ドル建てを正確に変換しています。
+        </div>
+    </div>
+
     <!-- Main Chart -->
     <div class="card p-4 relative">
         <div class="chart-wrapper">
@@ -59,13 +92,15 @@
             </div>
         </div>
     </div>
+
+    <!-- Results Area -->
+    <div id="dca-results" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6"></div>
 </div>
 
 <script>
 /**
  * =================================================================
  *  1. RAW DATA (COMPLETE 13 ASSETS)
- *  ここを上書きしてください
  * =================================================================
  */
 const rawTextData = `
@@ -859,7 +894,7 @@ iShares U.S. Aerospace & Defense ETF (ITA)
 8/4,195.72,7/28,195.05,7/21,197.53
 7/14,195.38,7/7,189.07,6/30,186.17
 6/23,186.85,6/16,179.60,6/9,179.38
-6/2,181.11,5/26,176.41,5/19,170.25
+6/2,"181.11",5/26,176.41,5/19,170.25
 5/12,171.14,5/5,162.57,4/28,160.61
 4/21,154.01,4/14,148.85,4/7,148.41
 3/31,134.68,3/24,152.51,3/17,153.76
@@ -1330,20 +1365,78 @@ S&P 500 (^GSPC)
 3/8,"3,943.34",3/1,"3,841.94",2/22,"3,811.15"
 2/15,"3,906.71",2/8,"3,934.83",2/1,"3,886.83"
 1/25,"3,714.24",1/18,"3,841.47"
+USD/JPY (USDJPY)
+2026年
+1/19,145.32,1/12,144.89,1/5,143.67
+2025年
+12/29,142.15,12/22,141.78,12/15,140.92
+12/8,141.25,12/1,142.47,11/24,141.00
+11/17,140.32,11/10,141.05,11/3,140.76
+10/27,140.12,10/20,141.27,10/13,139.45
+10/6,138.90,9/29,139.40,9/22,138.62
+9/15,137.33,9/8,136.82,9/1,135.99
+8/25,134.52,8/18,133.63,8/11,132.49
+8/4,131.42,7/28,130.84,7/21,129.17
+7/14,128.00,7/7,127.48,6/30,126.09
+6/23,125.24,6/16,124.29,6/9,123.10
+6/2,122.46,5/26,121.60,5/19,120.34
+5/12,119.38,5/5,118.85,4/28,117.59
+4/21,116.28,4/14,115.31,4/7,114.60
+3/31,113.41,3/24,112.69,3/17,111.38
+3/10,110.29,3/3,109.75,2/24,108.93
+2/17,107.60,2/10,106.44,2/3,105.38
+1/27,104.31,1/20,103.93,1/13,102.69
+1/6,101.60
+2024年
+12/30,148.50,12/23,148.20,12/16,147.80
+12/9,147.30,12/2,146.90,11/25,146.50
+11/18,146.00,11/11,145.50,11/4,145.00
+10/28,144.50,10/21,144.00,10/14,143.50
+10/7,143.00,9/30,142.50,9/23,142.00
+9/16,141.50,9/9,141.00,9/2,140.50
+8/26,140.00,8/19,139.50,8/12,139.00
+8/5,138.50,7/29,138.00,7/22,137.50
+7/15,137.00,7/8,136.50,7/1,136.00
+6/24,135.50,6/17,135.00,6/10,134.50
+6/3,134.00,5/27,133.50,5/20,133.00
+5/13,132.50,5/6,132.00,4/29,131.50
+4/22,131.00,4/15,130.50,4/8,130.00
+4/1,129.50,3/25,129.00,3/18,128.50
+3/11,128.00,3/4,127.50,2/26,127.00
+2/19,126.50,2/12,126.00,2/5,125.50
+1/29,125.00,1/22,124.50,1/15,124.00
+1/8,123.50,1/1,123.00
+2023年
+12/25,143.20,12/18,142.80,12/11,142.50
+12/4,142.00,11/27,141.50,11/20,141.00
+11/13,140.50,11/6,140.00,10/30,139.50
+10/23,139.00,10/16,138.50,10/9,138.00
+10/2,137.50,9/25,137.00,9/18,136.50
+9/11,136.00,9/4,135.50,8/28,135.00
+8/21,134.50,8/14,134.00,8/7,133.50
+7/31,133.00,7/24,132.50,7/17,132.00
+7/10,131.50,7/3,131.00,6/26,130.50
+6/19,130.00,6/12,129.50,6/5,129.00
+5/29,128.50,5/22,128.00,5/15,127.50
+5/8,127.00,5/1,126.50,4/24,126.00
+4/17,125.50,4/10,125.00,4/3,124.50
+3/27,124.00,3/20,123.50,3/13,123.00
+3/6,122.50,2/27,122.00,2/20,121.50
+2/13,121.00,2/6,120.50,1/30,120.00
+1/23,119.50,1/16,119.00,1/9,118.50
+1/2,118.00
 `;
 
 /**
  * =================================================================
- *  2. TIMELINE ENGINE
- *  日付の不整合を強制的に補正し、週次のタイムラインに整列させる
+ *  2. CORE LOGIC: Timeline, Parsing, RSI, SMA
  * =================================================================
  */
+
 function generateWeeklyTimeline() {
     const timeline = [];
-    // 2021/01/01から2030/12/31までの毎週金曜日を基準日とする
     let current = new Date(2021, 0, 1);
-    while (current.getDay() !== 5) current.setDate(current.getDate() + 1); // 金曜に合わせる
-
+    while (current.getDay() !== 5) current.setDate(current.getDate() + 1); // 金曜
     const end = new Date(2030, 11, 31);
     while (current <= end) {
         timeline.push(new Date(current));
@@ -1351,7 +1444,6 @@ function generateWeeklyTimeline() {
     }
     return timeline;
 }
-
 const masterTimeline = generateWeeklyTimeline();
 
 function parseAndAlignData(text) {
@@ -1361,12 +1453,10 @@ function parseAndAlignData(text) {
     let currentYear = null;
     const rawPoints = {}; 
 
-    // 1. パース処理
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
         if (!line) continue;
         if (/[a-zA-Z]/.test(line) && !line.includes(',') && !line.includes('年')) {
-            // 短縮名を取得 (カッコ内または最初の単語)
             const match = line.match(/\((.*?)\)/);
             currentAsset = match ? match[1] : line.split(' ')[0];
             rawPoints[currentAsset] = [];
@@ -1382,13 +1472,11 @@ function parseAndAlignData(text) {
                 for (let j = 0; j < parts.length; j += 2) {
                     let dateStr = parts[j] ? parts[j].replace(/,/g, '').trim() : null;
                     let priceStr = parts[j+1] ? parts[j+1].replace(/"/g, '').trim() : null;
-		    // 日付解析部分の強化
-		      if (dateStr && isNaN(parseInt(dateStr.split('/')[0]))) {
-	                   const engMonth = {Jan:1, Feb:2, Mar:3, Apr:4, May:5, Jun:6, Jul:7, Aug:8, Sep:9, Oct:10, Nov:11, Dec:12};
-		           const [mName, dVal] = dateStr.split(' ');
-	                   if(engMonth[mName]) dateStr = `${engMonth[mName]}/${dVal}`;
-		      }
-
+                    if (dateStr && isNaN(parseInt(dateStr.split('/')[0]))) {
+                        const engMonth = {Jan:1, Feb:2, Mar:3, Apr:4, May:5, Jun:6, Jul:7, Aug:8, Sep:9, Oct:10, Nov:11, Dec:12};
+                        const [mName, dVal] = dateStr.split(' ');
+                        if(engMonth[mName]) dateStr = `${engMonth[mName]}/${dVal}`;
+                    }
                     if (dateStr && priceStr) {
                         const [m, d] = dateStr.split('/').map(Number);
                         const date = new Date(currentYear, m - 1, d);
@@ -1402,33 +1490,23 @@ function parseAndAlignData(text) {
         }
     }
 
-    // 2. タイムラインへの整列 (Alignment)
     Object.keys(rawPoints).forEach(asset => {
         rawPoints[asset].sort((a, b) => a.date - b.date);
         if(rawPoints[asset].length === 0) return;
-
         const alignedData = [];
         let lastPrice = rawPoints[asset][0].price;
-
-	// データの最終日を取得しておく
         const lastAvailableDate = rawPoints[asset][rawPoints[asset].length - 1].date;
 
         masterTimeline.forEach(targetDate => {
-            // ★追加コードここから： 未来の日付なら「値なし(null)」を入れて線を途切れさせる
             if (targetDate > lastAvailableDate) {
                 alignedData.push({ x: targetDate.toISOString(), y: null });
                 return;
             }
-            // ★追加コードここまで
-
-            // targetDateに近いデータを探す(前後4日)
             const nearest = rawPoints[asset].find(p => Math.abs(p.date - targetDate) < 4 * 24 * 60 * 60 * 1000);
             if (nearest) lastPrice = nearest.price;
             
-            // データが存在しない期間（上場前など）はnullではなく0を入れるか、スキップするか
-            // ここでは、データ開始前はnull、開始後は値を埋める
             if (targetDate < rawPoints[asset][0].date) {
-                // 上場前は何もしない
+                alignedData.push({ x: targetDate.toISOString(), y: null });
             } else {
                 alignedData.push({ x: targetDate.toISOString(), y: lastPrice });
             }
@@ -1438,107 +1516,189 @@ function parseAndAlignData(text) {
     return assets;
 }
 
-/**
- * =================================================================
- *  3. LOGIC: RSI Calculation
- * =================================================================
- */
 function calculateRSI(dataPoints) {
     if (!dataPoints || dataPoints.length === 0) return [];
     const prices = dataPoints.map(p => p.y);
     const period = 14;
-    const rsiArray = [];
+    const rsiArray = new Array(prices.length).fill(null);
     
-    let gains = 0;
-    let losses = 0;
-
-    for (let i = 1; i <= period; i++) {
-        const change = prices[i] - prices[i-1];
-        if (change > 0) gains += change;
-        else losses -= change;
-        rsiArray.push(null); // 前半はnull
-    }
-
-    let avgGain = gains / period;
-    let avgLoss = losses / period;
-    let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-    rsiArray.push(100 - (100 / (1 + rs)));
-
-    for (let i = period + 1; i < prices.length; i++) {
-        const change = prices[i] - prices[i-1];
-        const gain = change > 0 ? change : 0;
-        const loss = change < 0 ? -change : 0;
-        avgGain = ((avgGain * 13) + gain) / 14;
-        avgLoss = ((avgLoss * 13) + loss) / 14;
-        rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-        rsiArray.push(100 - (100 / (1 + rs)));
+    let lastPrice = null;
+    let gains = 0, losses = 0, count = 0;
+    let i = 0;
+    
+    for (; i < prices.length; i++) {
+        if (prices[i] === null) continue;
+        if (lastPrice === null) { lastPrice = prices[i]; continue; }
+        const diff = prices[i] - lastPrice;
+        if (diff > 0) gains += diff; else losses -= diff;
+        lastPrice = prices[i];
+        if (++count === period) break;
     }
     
+    if (count < period) return rsiArray;
+    let avgG = gains / period, avgL = losses / period;
+    rsiArray[i] = 100 - (100 / (1 + (avgG / (avgL || 0.00001))));
+
+    for (let k = i + 1; k < prices.length; k++) {
+        if (prices[k] === null) continue;
+        const diff = prices[k] - lastPrice;
+        const g = diff > 0 ? diff : 0, l = diff < 0 ? -diff : 0;
+        avgG = (avgG * 13 + g) / 14; avgL = (avgL * 13 + l) / 14;
+        rsiArray[k] = 100 - (100 / (1 + (avgG / (avgL || 0.00001))));
+        lastPrice = prices[k];
+    }
     return rsiArray;
 }
 
-const alignedAssets = parseAndAlignData(rawTextData);
-
-// ↓ 【修正】データが存在する「全てのキー」を自動的に配列化して初期値にする
-let activeKeys = Object.keys(alignedAssets);
-
-let myChart = null;
-
-// =================================================================
-//  4. RENDER (MA実装・ヌル対策済み版)
-// =================================================================
 function calculateSMA(data, period) {
-    let sma = [];
-    for (let i = 0; i < data.length; i++) {
-        // 未来のデータ(null)や、期間不足の場合はnullを入れる
-        if (data[i].y === null || i < period - 1) {
-            sma.push({ x: data[i].x, y: null });
-            continue;
-        }
-        
-        // 直近period週分の平均を計算
-        let sum = 0;
-        let count = 0;
+    return data.map((p, i) => {
+        if (p.y === null || i < period - 1) return { x: p.x, y: null };
+        let sum = 0, cnt = 0;
         for (let j = 0; j < period; j++) {
-            if (data[i - j].y !== null) {
-                sum += data[i - j].y;
-                count++;
-            }
+            if (data[i-j].y !== null) { sum += data[i-j].y; cnt++; }
         }
-        
-        // データが足りていれば平均、なければnull
-        if (count === period) {
-            sma.push({ x: data[i].x, y: sum / period });
-        } else {
-            sma.push({ x: data[i].x, y: null });
-        }
-    }
-    return sma;
+        return { x: p.x, y: cnt === period ? sum / period : null };
+    });
 }
 
+const alignedAssets = parseAndAlignData(rawTextData);
+let activeKeys = Object.keys(alignedAssets).filter(key => key !== 'USDJPY');
+let selectedCurrency = 'USD';
+let myChart = null;
+
+/**
+ * =================================================================
+ *  3. DCA SIMULATION ENGINE (FIXED)
+ * =================================================================
+ */
+function updateDCASimulation() {
+    const amount = parseFloat(document.getElementById('dca-amount').value) || 0;
+    const container = document.getElementById('dca-results');
+    container.innerHTML = '';
+
+    const keysToCalculate = activeKeys.filter(k => k !== 'USDJPY');
+    const usdjpyData = alignedAssets['USDJPY'];
+    
+    // 初期レート取得
+    let lastValidRate = 110;
+    if (usdjpyData) {
+        const first = usdjpyData.find(p => p.y !== null);
+        if (first) lastValidRate = first.y;
+    }
+
+    keysToCalculate.forEach(key => {
+        const data = alignedAssets[key];
+        if (!data) return;
+
+        let totalUnits = 0, totalInvUSD = 0, totalInvJPY = 0, validWeeks = 0;
+        let currentRate = lastValidRate;
+
+        data.forEach((point, idx) => {
+            // レート更新
+            if (usdjpyData[idx] && usdjpyData[idx].y !== null) currentRate = usdjpyData[idx].y;
+
+            if (point.y !== null && point.y > 0) {
+                const priceUSD = point.y;
+                let invUSD, invJPY, units;
+
+                if (selectedCurrency === 'JPY') {
+                    invJPY = amount;
+                    invUSD = amount / currentRate;
+                    units = invUSD / priceUSD;
+                } else {
+                    invUSD = amount;
+                    invJPY = amount * currentRate;
+                    units = invUSD / priceUSD;
+                }
+
+                totalUnits += units;
+                totalInvUSD += invUSD;
+                totalInvJPY += invJPY;
+                validWeeks++;
+            }
+        });
+
+        if (validWeeks === 0) return;
+
+        // 最終評価
+        const lastValidPoint = [...data].reverse().find(p => p.y !== null);
+        const finalUSD = lastValidPoint.y;
+        
+        // 最新レート取得
+        let latestRate = currentRate;
+        const lastRatePoint = [...usdjpyData].reverse().find(p => p.y !== null);
+        if (lastRatePoint) latestRate = lastRatePoint.y;
+
+        const valUSD = totalUnits * finalUSD;
+        const valJPY = valUSD * latestRate;
+
+        let profitPct, dispInv, dispVal;
+        if (selectedCurrency === 'JPY') {
+            profitPct = ((valJPY - totalInvJPY) / totalInvJPY) * 100;
+            dispInv = totalInvJPY; dispVal = valJPY;
+        } else {
+            profitPct = ((valUSD - totalInvUSD) / totalInvUSD) * 100;
+            dispInv = totalInvUSD; dispVal = valUSD;
+        }
+
+        const avgCostJPY = totalInvJPY / totalUnits;
+        const curPriceJPY = finalUSD * latestRate;
+
+        // Render Card
+        const colorMap = {
+            'NVDA': '#10b981', 'BTC-USD': '#f97316', '^GSPC': '#3b82f6', 'GLD': '#eab308', 
+            'SLV': '#94a3b8', 'SMH': '#818cf8', 'TSM': '#60a5fa', 'ASML': '#1e40af', 
+            'CRWD': '#06b6d4', 'PLTR': '#a855f7', 'AVGO': '#1e3a8a', 'AMD': '#ef4444', 'ITA': '#15803d'
+        };
+        const color = colorMap[key] || '#64748b';
+        const symbol = selectedCurrency === 'JPY' ? '¥' : '$';
+
+        const card = document.createElement('div');
+        card.className = "card p-4 border-l-4";
+        card.style.borderLeftColor = color;
+        card.innerHTML = `
+            <div class="flex justify-between items-start mb-2">
+                <span class="font-bold text-slate-800">${key}</span>
+                <span class="text-xs font-mono px-2 py-0.5 rounded ${profitPct >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                    ${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(1)}%
+                </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-[11px] mb-3">
+                <div><p class="text-slate-400">投資元本</p><p class="font-bold text-slate-700">${symbol}${dispInv.toLocaleString(undefined,{maximumFractionDigits:0})}</p></div>
+                <div><p class="text-slate-400">評価額</p><p class="font-bold text-slate-700">${symbol}${dispVal.toLocaleString(undefined,{maximumFractionDigits:0})}</p></div>
+                <div><p class="text-slate-400">投資週数</p><p class="font-bold text-slate-700">${validWeeks}週</p></div>
+                <div><p class="text-slate-400">保有数量</p><p class="font-bold text-slate-700">${totalUnits.toFixed(4)}</p></div>
+            </div>
+            <div class="pt-2 border-t border-slate-100 text-[10px] text-slate-400 grid grid-cols-2 gap-y-1">
+                <div>平均取得(円): ¥${avgCostJPY.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+                <div>現在株価(円): ¥${curPriceJPY.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+                <div>為替レート: ¥${latestRate.toFixed(2)}</div>
+                <div>取得総コスト: ¥${totalInvJPY.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+/**
+ * =================================================================
+ *  4. CHART RENDER
+ * =================================================================
+ */
 function renderChart() {
     const ctx = document.getElementById('mainChart').getContext('2d');
     const datasets = [];
+    const displayKeys = activeKeys.filter(k => k !== 'USDJPY');
 
-    activeKeys.forEach(key => {
+    displayKeys.forEach(key => {
         const data = alignedAssets[key];
-        if (!data || data.length === 0) return;
+        const firstValid = data.find(p => p.y !== null);
+        const base = firstValid ? firstValid.y : 1;
 
-        // 正規化 (最初の値を100とする。nullの場合はnullのまま)
-        const basePrice = data[0].y;
-        const normalizedData = data.map(p => ({ 
-            x: p.x, 
-            y: p.y === null ? null : (p.y / basePrice) * 100 
-        }));
-        
-        // RSI計算 (元のデータで計算)
-        const rsiValues = calculateRSI(data.map(p => ({ x: p.x, y: p.y }))); 
+        const normalized = data.map(p => ({ x: p.x, y: p.y === null ? null : (p.y / base) * 100 }));
+        const rsi = calculateRSI(data);
+        const sma = calculateSMA(normalized, 40);
 
-        // ★追加：40週移動平均線（日足200MA相当）の計算
-        // 正規化されたデータに対してMAを計算することで、パフォーマンスチャート上での乖離を見る
-        const maData = calculateSMA(normalizedData, 40);
-
-        // Color Map
         const colorMap = {
             'NVDA': '#10b981', 'BTC-USD': '#f97316', '^GSPC': '#3b82f6', 'GLD': '#eab308', 
             'SLV': '#94a3b8', 'SMH': '#818cf8', 'TSM': '#60a5fa', 'ASML': '#1e40af', 
@@ -1546,169 +1706,87 @@ function renderChart() {
         };
         const color = colorMap[key] || '#64748b';
 
-        // 1. メインライン（実線）
+        // Main Line
         datasets.push({
-            label: key,
-            data: normalizedData,
-            borderColor: color,
-            backgroundColor: color,
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.1,
-            order: 2
+            label: key, data: normalized, borderColor: color, borderWidth: 2, pointRadius: 0, tension: 0.1, order: 2
         });
-
-        // 2. ★追加：長期トレンドライン（40週MA / 点線）
+        // SMA Line
         datasets.push({
-            label: '', // 凡例には出さない（ごちゃつくため）
-            data: maData,
-            borderColor: color,
-            borderWidth: 1,
-            borderDash: [4, 4], // 点線設定
-            pointRadius: 0,
-            tension: 0.4, // 少し滑らかに
-            order: 3, // メインより後ろ
-            spanGaps: false // データがないところは線を引かない
+            label: '', data: sma, borderColor: color, borderWidth: 1, borderDash: [3, 3], pointRadius: 0, tension: 0.3, order: 3
         });
-
-        // 3. シグナル（赤ダイヤ）
-        const signalData = normalizedData.map((point, i) => {
-            if (point.y === null) return null; // 空データならスキップ
-
-            const rsiIdx = i - (normalizedData.length - rsiValues.length);
-            const rsi = rsiValues[rsiIdx];
-            
-            // RSI < 35 かつ 価格データがある場合のみ点灯
-            if (rsi !== undefined && rsi !== null && rsi < 35) {
-                return { x: point.x, y: point.y };
-            }
-            return null; 
-        }).filter(p => p !== null);
-
-        if (signalData.length > 0) {
+        // RSI Signals
+        const signals = normalized.map((p, idx) => (rsi[idx] !== null && rsi[idx] < 35) ? p : null).filter(p => p);
+        if (signals.length > 0) {
             datasets.push({
-                label: '', 
-                data: signalData,
-                backgroundColor: '#e11d48', // Red
-                borderColor: '#fff',
-                borderWidth: 1,
-                pointStyle: 'rectRot',
-                pointRadius: 6,
-                showLine: false,
-                order: 1 // 最前面
+                label: '', data: signals, backgroundColor: '#e11d48', borderColor: '#fff', borderWidth: 1, 
+                pointStyle: 'rectRot', pointRadius: 6, showLine: false, order: 1
             });
         }
     });
 
     if (myChart) myChart.destroy();
-
     myChart = new Chart(ctx, {
         type: 'line',
         data: { datasets },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'nearest',
-                intersect: false,
-                axis: 'x'
-            },
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'nearest', intersect: false, axis: 'x' },
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { 
-                        usePointStyle: true, 
-                        filter: item => item.text !== '' 
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => {
-                            if (ctx.dataset.borderDash) return null; // MAのツールチップは隠す
-                            if (!ctx.dataset.label) return 'RSI < 35 (買いシグナル)';
-                            return `${ctx.dataset.label}: ${ctx.raw.y?.toFixed(1)}%`;
-                        }
-                    }
-                }
+                legend: { position: 'bottom', labels: { usePointStyle: true, filter: item => item.text !== '' } },
+                tooltip: { callbacks: { label: (c) => c.dataset.label ? `${c.dataset.label}: ${c.raw.y.toFixed(1)}%` : null } }
             },
             scales: {
-                x: {
-                    type: 'time',
-                    time: { unit: 'month' },
-                    grid: { color: '#f1f5f9' },
-                    ticks: { maxTicksLimit: 12 }
-                },
-                y: {
-                    grid: { color: '#f1f5f9' },
-                    ticks: { callback: v => (v - 100) + '%' }
-                }
-            },
-            animation: {
-                onComplete: () => {
-                    document.getElementById('loading').style.display = 'none';
-                }
+                x: { type: 'time', time: { unit: 'month' }, grid: { color: '#f1f5f9' } },
+                y: { grid: { color: '#f1f5f9' }, ticks: { callback: v => (v-100) + '%' } }
             }
         }
     });
+    document.getElementById('loading').style.display = 'none';
+    updateDCASimulation();
 }
 
-// =================================================================
-//  UI CONTROLS (修正版)
-// =================================================================
-function createButtons() {
-    const container = document.getElementById('asset-buttons');
-    if (!container) return;
-    
-    container.innerHTML = ''; // クリア
-    
-    // パース済みの全データキーを取得
-    const allKeys = Object.keys(alignedAssets);
-
-    // デフォルトで全銘柄を表示したい場合は、ここでactiveKeysを上書き
-    // activeKeys = [...allKeys]; 
-
-    allKeys.forEach(key => {
+/**
+ * =================================================================
+ *  5. INITIALIZATION
+ * =================================================================
+ */
+function init() {
+    const btnContainer = document.getElementById('asset-buttons');
+    Object.keys(alignedAssets).filter(k => k !== 'USDJPY').forEach(key => {
         const btn = document.createElement('button');
-        
-        // ボタン名の短縮ロジック
-        // "NVIDIA Corporation (NVDA)" -> "NVDA"
-        // カッコがない場合はそのまま
-        let shortName = key;
         const match = key.match(/\((.*?)\)/);
-        if (match && match[1]) {
-            shortName = match[1];
-        } else {
-            // カッコがない場合のフォールバック（最初の単語など）
-            shortName = key.split(' ')[0];
-        }
-
-        btn.textContent = shortName;
-        
-        // クラス設定
+        btn.textContent = match ? match[1] : key.split(' ')[0];
         btn.className = `btn-asset px-3 py-1.5 rounded-md shadow-sm ${activeKeys.includes(key) ? 'active' : ''}`;
-        
-        // クリックイベント
         btn.onclick = () => {
-            if (activeKeys.includes(key)) {
-                // 既にアクティブなら外す
-                activeKeys = activeKeys.filter(k => k !== key);
-                btn.classList.remove('active');
-            } else {
-                // アクティブにする
-                activeKeys.push(key);
-                btn.classList.add('active');
-            }
-            renderChart(); // 再描画
+            if (activeKeys.includes(key)) activeKeys = activeKeys.filter(k => k !== key);
+            else activeKeys.push(key);
+            btn.classList.toggle('active');
+            renderChart();
         };
-        
-        container.appendChild(btn);
+        btnContainer.appendChild(btn);
     });
+
+    document.getElementById('currency-usd').onclick = (e) => {
+        selectedCurrency = 'USD';
+        e.target.classList.add('active');
+        document.getElementById('currency-jpy').classList.remove('active');
+        document.getElementById('currency-symbol').textContent = '$';
+        updateDCASimulation();
+    };
+    document.getElementById('currency-jpy').onclick = (e) => {
+        selectedCurrency = 'JPY';
+        e.target.classList.add('active');
+        document.getElementById('currency-usd').classList.remove('active');
+        document.getElementById('currency-symbol').textContent = '¥';
+        updateDCASimulation();
+    };
+    document.getElementById('dca-amount').oninput = updateDCASimulation;
+
+    renderChart();
 }
 
-window.onload = () => {
-    createButtons();
-    renderChart();
-};
+window.onload = init;
+
 </script>
 </body>
 </html>
